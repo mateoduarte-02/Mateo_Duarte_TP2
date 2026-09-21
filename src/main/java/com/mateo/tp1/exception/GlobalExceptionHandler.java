@@ -4,6 +4,7 @@ import com.mateo.tp1.dto.ApiResponse;
 import org.springframework.context.MessageSourceResolvable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.FieldError;
 import org.springframework.validation.method.ParameterErrors;
 import org.springframework.validation.method.ParameterValidationResult;
@@ -14,6 +15,7 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -21,7 +23,7 @@ import java.util.stream.Collectors;
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
-    // 404 - recurso no encontrado (ej: producto/id inexistente)
+    // 404 - recurso no encontrado (ej: producto/cliente/id inexistente)
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> manejarNoEncontrado(ResourceNotFoundException ex) {
         ApiResponse<Void> response = new ApiResponse<>(
@@ -30,7 +32,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
     }
 
-    // 400 - falla @Valid sobre un objeto completo (ej: ProductoDTO, cuerpos que no son listas sueltas)
+    // 400 - falla @Valid sobre un objeto completo (ej: ProductoDTO, ClienteDTO simples)
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiResponse<List<String>>> manejarValidacion(MethodArgumentNotValidException ex) {
         List<String> errores = new ArrayList<>();
@@ -56,6 +58,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    // 400 - falla validación sobre @RequestParam/@PathVariable o List<DTO> con @Valid como parámetro directo
     @ExceptionHandler(HandlerMethodValidationException.class)
     public ResponseEntity<ApiResponse<List<String>>> manejarParametrosInvalidos(HandlerMethodValidationException ex) {
         List<String> errores = new ArrayList<>();
@@ -85,14 +88,34 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 400 - validaciones manuales (ej: porcentaje fuera de rango en Ejercicio 1)
+    // 400 - errores de validación agrupados por campo (usado por ClienteDTO en /api/clientes/validado)
+    @ExceptionHandler(ClienteValidacionException.class)
+    public ResponseEntity<ApiResponse<Map<String, String>>> manejarValidacionCliente(ClienteValidacionException ex) {
+        ApiResponse<Map<String, String>> response = new ApiResponse<>(
+                HttpStatus.BAD_REQUEST.value(), "Error de validación", ex.getErrores()
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // 400 - JSON malformado en el body (llaves faltantes, comas de más, sintaxis inválida)
+    @ExceptionHandler(HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiResponse<Void>> manejarJsonMalformado(HttpMessageNotReadableException ex) {
+        ApiResponse<Void> response = new ApiResponse<>(
+                HttpStatus.BAD_REQUEST.value(),
+                "El cuerpo de la solicitud tiene un formato JSON inválido",
+                null
+        );
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+    }
+
+    // 400 - validaciones manuales (ej: porcentaje fuera de rango, email ya registrado)
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiResponse<Void>> manejarArgumentoInvalido(IllegalArgumentException ex) {
         ApiResponse<Void> response = new ApiResponse<>(HttpStatus.BAD_REQUEST.value(), ex.getMessage(), null);
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 502 - falla la comunicación con un servicio externo (Ejercicio 3 - Frankfurter)
+    // 502 - falla la comunicación con un servicio externo (Ejercicio 3/6 - Frankfurter)
     @ExceptionHandler(ServicioExternoException.class)
     public ResponseEntity<ApiResponse<Void>> manejarServicioExterno(ServicioExternoException ex) {
         ApiResponse<Void> response = new ApiResponse<>(HttpStatus.BAD_GATEWAY.value(), ex.getMessage(), null);
