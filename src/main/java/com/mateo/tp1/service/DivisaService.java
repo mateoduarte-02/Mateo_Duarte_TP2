@@ -2,13 +2,19 @@ package com.mateo.tp1.service;
 
 import com.mateo.tp1.dto.ConversionDTO;
 import com.mateo.tp1.dto.FrankfurterResponseDTO;
+import com.mateo.tp1.dto.HistorialConversionDTO;
+import com.mateo.tp1.entity.HistorialConversion;
 import com.mateo.tp1.exception.ServicioExternoException;
+import com.mateo.tp1.repository.HistorialConversionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
 
+import java.time.LocalDateTime;
+import java.util.List;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @Service
 public class DivisaService {
@@ -17,11 +23,13 @@ public class DivisaService {
     private static final String URL_BASE = "https://api.frankfurter.dev/v2";
 
     private final RestClient restClient;
+    private final HistorialConversionRepository historialRepository;
 
-    public DivisaService() {
+    public DivisaService(HistorialConversionRepository historialRepository) {
         this.restClient = RestClient.builder()
                 .baseUrl(URL_BASE)
                 .build();
+        this.historialRepository = historialRepository;
     }
 
     public ConversionDTO convertir(double monto, String origen, String destino) {
@@ -39,7 +47,6 @@ public class DivisaService {
                     .retrieve()
                     .body(FrankfurterResponseDTO.class);
         } catch (HttpClientErrorException ex) {
-            // La API externa devuelve 422 cuando el código de moneda no existe
             throw new ServicioExternoException(
                     "La API externa no pudo procesar la conversión: código de moneda inexistente");
         } catch (RestClientException ex) {
@@ -64,15 +71,50 @@ public class DivisaService {
         );
     }
 
+    public ConversionDTO consultarYGuardar(double monto, String origen, String destino) {
+
+        ConversionDTO conversion = convertir(monto, origen, destino);
+
+        HistorialConversion registro = new HistorialConversion();
+        registro.setMonedaOrigen(conversion.getMonedaOrigen());
+        registro.setMonedaDestino(conversion.getMonedaDestino());
+        registro.setMonto(conversion.getMontoOriginal());
+        registro.setMontoConvertido(conversion.getMontoConvertido());
+        registro.setTasa(conversion.getTasaCambio());
+        registro.setFechaConsulta(LocalDateTime.now());
+
+        historialRepository.save(registro);
+
+        return conversion;
+    }
+
+    public List<HistorialConversionDTO> obtenerHistorial(String origen, String destino) {
+        validarCodigoMoneda(origen, "origen");
+        validarCodigoMoneda(destino, "destino");
+
+        String origenNormalizado = origen.toUpperCase();
+        String destinoNormalizado = destino.toUpperCase();
+
+        List<HistorialConversion> registros = historialRepository
+                .findByMonedaOrigenAndMonedaDestinoOrderByFechaConsultaDesc(origenNormalizado, destinoNormalizado);
+
+        return registros.stream()
+                .map(r -> new HistorialConversionDTO(r.getFechaConsulta(), r.getTasa()))
+                .collect(Collectors.toList());
+    }
+
     private void validarDatos(double monto, String origen, String destino) {
         if (monto <= 0) {
             throw new IllegalArgumentException("El monto debe ser mayor que 0");
         }
-        if (origen == null || !PATRON_MONEDA.matcher(origen).matches()) {
-            throw new IllegalArgumentException("El código de moneda de origen debe tener 3 letras");
-        }
-        if (destino == null || !PATRON_MONEDA.matcher(destino).matches()) {
-            throw new IllegalArgumentException("El código de moneda de destino debe tener 3 letras");
+        validarCodigoMoneda(origen, "origen");
+        validarCodigoMoneda(destino, "destino");
+    }
+
+    private void validarCodigoMoneda(String codigo, String nombreCampo) {
+        if (codigo == null || !PATRON_MONEDA.matcher(codigo).matches()) {
+            throw new IllegalArgumentException(
+                    "El código de moneda de " + nombreCampo + " debe tener 3 letras");
         }
     }
 }
