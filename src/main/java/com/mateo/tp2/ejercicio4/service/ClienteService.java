@@ -12,30 +12,35 @@ public class ClienteService {
 
     private final ClienteRepository clienteRepository;
 
+    // Inyección de dependencias:
+
     public ClienteService(ClienteRepository clienteRepository) {
         this.clienteRepository = clienteRepository;
     }
 
-    public Cliente altaSimple(ClienteDTO dto) {
+    public Cliente altaSimple(ClienteDTO dto) {      // convierto el DTO en entidad y lo guardo, sin chequeos extra.
         Cliente cliente = mapearDesdeDTO(dto);
-        return clienteRepository.save(cliente);
+        return clienteRepository.save(cliente);      // acá Hibernate genera el INSERT real
     }
 
     public Cliente altaValidada(ClienteDTO dto) {
-        if (clienteRepository.findByEmail(dto.getEmail()).isPresent()) {
+        if (clienteRepository.findByEmail(dto.getEmail()).isPresent()) {        // primero reviso si el email ya existe.
             throw new IllegalArgumentException("El email ya está registrado");
         }
         Cliente cliente = mapearDesdeDTO(dto);
         return clienteRepository.save(cliente);
     }
 
-    private Cliente mapearDesdeDTO(ClienteDTO dto) {
+    
+    // Está separado para no repetir este código en altaSimple y altaValidada.
+    private Cliente mapearDesdeDTO(ClienteDTO dto) {            // arma la entidad a partir del DTO.
         Cliente cliente = new Cliente();
         cliente.setNombre(dto.getNombre());
         cliente.setApellido(dto.getApellido());
         cliente.setEmail(dto.getEmail());
         cliente.setTelefono(dto.getTelefono());
-        cliente.setFechaRegistro(LocalDateTime.now());
+        cliente.setFechaRegistro(LocalDateTime.now());      // la pone el sistema, no viene en el DTO
         return cliente;
     }
+    // El id queda en null a propósito: lo va a generar MySQL con AUTO_INCREMENT recién cuando llamemos a save().
 }

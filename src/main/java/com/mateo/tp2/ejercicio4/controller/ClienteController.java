@@ -17,8 +17,14 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import java.util.HashMap;
-import java.util.Map;
+import java.util.HashMap;       // para poder escribir "new HashMap<>()"
+import java.util.Map;           // para poder escribir el tipo "Map<String, String>"
+
+
+// Todos los métodos devuelven ResponseEntity<ApiResponse<X>>, de afuera hacia adentro:
+// - X: el objeto real (el Cliente que se acaba de crear, con su id, nombre, email, etc.)
+// - ApiResponse<X>: envuelve ese objeto en el formato estándar {status, messege, data}
+// - ResponseEntity<...>: envuelve todo lo anterior y agrega el código de estado y los headers
 
 @RestController
 @RequestMapping("/api/clientes")
@@ -31,6 +37,8 @@ public class ClienteController {
         this.clienteService = clienteService;
     }
 
+    // POST /api/clientes -> alta simple
+    // SIN @Valid (no corre ninguna validación)
     @PostMapping
     @Operation(summary = "Alta simple de un cliente",
             description = "Inserta un cliente en la base de datos sin validaciones adicionales.")
@@ -39,17 +47,20 @@ public class ClienteController {
         ApiResponse<Cliente> response = new ApiResponse<>(
                 HttpStatus.CREATED.value(), "Cliente creado con éxito", clienteCreado
         );
-        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);    // Arma la respuesta HTTP real: código 201 + el ApiResponse como cuerpo
     }
 
+    // POST /api/clientes/validado -> alta con Bean Validation + chequeo manual de errores
     @PostMapping("/validado")
     @Operation(summary = "Alta de un cliente con validaciones",
             description = "Valida nombre, apellido, email (formato y unicidad) y teléfono antes de insertar.")
     public ResponseEntity<ApiResponse<Cliente>> altaValidada(
-            @Valid @RequestBody ClienteDTO clienteDTO, BindingResult bindingResult) {
+            // @Valid corre las validaciones del DTO (@NotBlank, @Size, @Email, @Pattern).
+            // El BindingResult, justo después, cambia el comportamiento de @Valid, en vez de que Spring lance el error automáticamente, acá me deja revisarlo yo.
+            @Valid @RequestBody ClienteDTO clienteDTO, BindingResult bindingResult) {   
 
-        if (bindingResult.hasErrors()) {
-            Map<String, String> errores = new HashMap<>();
+        if (bindingResult.hasErrors()) {        // algun @Valid falló
+            Map<String, String> errores = new HashMap<>();      // Armo un mapa {campo -> motivo}
             for (FieldError error : bindingResult.getFieldErrors()) {
                 errores.put(error.getField(), error.getDefaultMessage());
             }

@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 public class Cliente {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)     // el id lo genera la base (AUTO_INCREMENT)
     private Long id;
 
     @Column(nullable = false)
@@ -24,11 +24,11 @@ public class Cliente {
     @Column(nullable = false)
     private String apellido;
 
-    @Column(nullable = false, unique = true)
+    @Column(nullable = false, unique = true)    // no puede repetirse en la tabla
     private String email;
 
     private String telefono;
 
-    @Column(name = "fecha_registro")
+    @Column(name = "fecha_registro")        // en Java es fechaRegistro, en la tabla es fecha_registro
     private LocalDateTime fechaRegistro;
 }
