@@ -14,13 +14,16 @@ import java.util.stream.Collectors;
 
 
 
-@Service
+@Service                            // Spring crea una instancia y la deja disponible para inyectar
 public class ProductoService {
 
-    private final List<Producto> productos = new ArrayList<>();
-    private final AtomicLong contadorId = new AtomicLong(1);
+    private final List<Producto> productos = new ArrayList<>();               // nuestra "base de datos" en memoria
+    private final AtomicLong contadorId = new AtomicLong(1);    // contador de ids que arranca en 1
 
-    @PostConstruct
+    // final significa que la variable no se puede reasignar, pero sí se pueden agregar y quitar elementos de la lista. 
+    // AtomicLong es un contador seguro para uso simultáneo.
+
+    @PostConstruct          // Spring ejecuta este método UNA vez, apenas crea el Service
     public void cargarDatosIniciales() {
         agregarProducto(new ProductoDTO("Mouse inalambrico", "Perifericos", 4500, 15));
         agregarProducto(new ProductoDTO("Teclado mecanico", "Perifericos", 25000, 8));
@@ -33,54 +36,67 @@ public class ProductoService {
     }
 
     public List<Producto> listarTodos() {
-        return productos;
+        return productos;                   // devuelve la lista completa
     }
 
     public Producto agregarProducto(ProductoDTO dto) {
         Producto nuevo = new Producto(
-                contadorId.getAndIncrement(),
+                contadorId.getAndIncrement(),       // devuelve el valor actual y después suma 1 (1, 2, 3...)
                 dto.getNombre(),
                 dto.getCategoria(),
                 dto.getPrecio(),
                 dto.getStock()
         );
-        productos.add(nuevo);
-        return nuevo;
+        productos.add(nuevo);       // lo agrega a la lista
+        return nuevo;               // lo devuelve para mostrarlo con el id ya asignado
     }
 
 
     public List<Producto> buscar(String categoria, Double precioMin, Double precioMax) {
-    return productos.stream()
-            .filter(p -> categoria == null || p.getCategoria().equalsIgnoreCase(categoria))
+    return productos.stream()                           // convierte la lista en un flujo de datos
+            .filter(p -> categoria == null || p.getCategoria().equalsIgnoreCase(categoria))     // equalsIgnoreCase hace que "perifericos" y "Perifericos" den lo mismo.
             .filter(p -> precioMin == null || p.getPrecio() >= precioMin)
             .filter(p -> precioMax == null || p.getPrecio() <= precioMax)
-            .collect(Collectors.toList());
+            .collect(Collectors.toList());              // convierte el flujo otra vez en lista
     }
+
+    // p -> ... es una lambda. p es cada producto, y filter se queda con los que devuelven true.
+    // categoria == null || ... es el truco de los filtros opcionales. Si no mandaron el parámetro, la condición es true y ese filtro deja pasar todo.
+    // Se combinan con AND porque cada filter trabaja sobre lo que dejó el anterior.
+    // Si no mandan ningún parámetro, no filtra nada y devuelve los 8.
+
 
     public List<Producto> ordenar(String criterio, String orden) {
         Comparator<Producto> comparador;
 
-        if ("nombre".equalsIgnoreCase(criterio)) {
-            comparador = Comparator.comparing(Producto::getNombre, String.CASE_INSENSITIVE_ORDER);
+        if ("nombre".equalsIgnoreCase(criterio)) {      //No hago criterio.equalsIgnoreCase("nombre") para evitar NullPointerException si criterio es null.
+            comparador = Comparator.comparing(Producto::getNombre, String.CASE_INSENSITIVE_ORDER);  //CASE_INSENSITIVE_ORDER ordena sin distinguir mayúsculas de minúsculas.
         } else {
             // por defecto o si viene "precio"
             comparador = Comparator.comparingDouble(Producto::getPrecio);
         }
 
         if ("desc".equalsIgnoreCase(orden)) {
-            comparador = comparador.reversed();
+            comparador = comparador.reversed();     // invierte el criterio
         }
 
-        return productos.stream()
-                .sorted(comparador)
-                .collect(Collectors.toList());
+        return productos.stream()       // convierte la lista en un flujo de productos
+                .sorted(comparador)     // los ordena según el comparador
+                .collect(Collectors.toList());      // arma una lista nueva con el resultado
     }
+
+    // Comparator define cómo se comparan dos productos. 
+    // Producto::getNombre es una referencia a método (equivale a p -> p.getNombre()).
+
+
+
+
 
     public Producto modificarStock(Long id, int cantidad) {
     Producto producto = productos.stream()
-            .filter(p -> p.getId().equals(id))
-            .findFirst()
-            .orElseThrow(() -> new ResourceNotFoundException("No se encontró un producto con id " + id));
+            .filter(p -> p.getId().equals(id))          // equals y no ==, porque son objetos Long
+            .findFirst()    // toma el primero, devuelve un Optional que es como una caja que puede tener un producto o estar vacía (evita devolver null y el NullPointerException)
+            .orElseThrow(() -> new ResourceNotFoundException("No se encontró un producto con id " + id));   //abre la caja, si hay producto lo devuelve y si está vacía lanza ResourceNotFoundException
 
     int nuevoStock = producto.getStock() + cantidad;
 
@@ -88,16 +104,19 @@ public class ProductoService {
         throw new IllegalArgumentException("El stock no puede quedar en un valor negativo");
     }
 
-    producto.setStock(nuevoStock);
+    producto.setStock(nuevoStock);       //guardo el nuevo stock en el producto
     return producto;
     }
 
-    public void eliminarProducto(Long id) {
-        boolean eliminado = productos.removeIf(p -> p.getId().equals(id));
 
+
+
+    public void eliminarProducto(Long id) {
+        boolean eliminado = productos.removeIf(p -> p.getId().equals(id));          // removeIf recorre la lista y borra los productos que cumplen la condición.
+                                                                                    // Devuelve true si borró al menos uno, y false si no encontró ninguno.
         if (!eliminado) {
             throw new ResourceNotFoundException("No se encontró un producto con id " + id);
-        }
+        }                               // Si no borró nada, es porque el id no existe: lanzamos el 404.
     }
 
 
