@@ -13,13 +13,11 @@ import org.springframework.web.client.RestClientException;
 
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @Service
 public class DivisaService {
 
-    private static final Pattern PATRON_MONEDA = Pattern.compile("^[A-Za-z]{3}$");    // Moneda tiene que tener exactamente 3 letras (se compila una sola vez)
     private static final String URL_BASE = "https://api.frankfurter.dev/v2";
 
     private final RestClient restClient;    // Es la herramienta de Spring para hacer llamadas HTTP a otras APIs
@@ -52,12 +50,12 @@ public class DivisaService {
                     .uri("/rate/{origen}/{destino}", origenNormalizado, destinoNormalizado)
                     .retrieve()     // Manda la consulta y trae la respuesta
                     .body(FrankfurterResponseDTO.class);    // Guarda la respuesta en este objeto
-        
+
 
         } catch (HttpClientErrorException ex) {
             throw new ServicioExternoException(
                     "La API externa no pudo procesar la conversión: código de moneda inexistente");
-        
+
 
         } catch (RestClientException ex) {
             throw new ServicioExternoException(
@@ -133,8 +131,9 @@ public class DivisaService {
 
 
 
+    // Valida que el código no sea nulo y tenga exactamente 3 caracteres
     private void validarCodigoMoneda(String codigo, String nombreCampo) {
-        if (codigo == null || !PATRON_MONEDA.matcher(codigo).matches()) {
+        if (codigo == null || codigo.length() != 3) {
             throw new IllegalArgumentException(
                     "El código de moneda de " + nombreCampo + " debe tener 3 letras");
         }

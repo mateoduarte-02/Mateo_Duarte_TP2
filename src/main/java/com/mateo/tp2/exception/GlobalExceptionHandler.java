@@ -115,7 +115,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
-    // 502 - falla la comunicación con un servicio externo (Ejercicio 3/6 - Frankfurter)
+    // 502 - falla la comunicación con un servicio externo (Ejercicio 3 y 6 - Frankfurter)
     @ExceptionHandler(ServicioExternoException.class)
     public ResponseEntity<ApiResponse<Void>> manejarServicioExterno(ServicioExternoException ex) {
         ApiResponse<Void> response = new ApiResponse<>(HttpStatus.BAD_GATEWAY.value(), ex.getMessage(), null);
