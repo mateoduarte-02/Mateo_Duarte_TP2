@@ -19,11 +19,14 @@ import java.util.stream.Collectors;
 @Service
 public class DivisaService {
 
-    private static final Pattern PATRON_MONEDA = Pattern.compile("^[A-Za-z]{3}$");
+    private static final Pattern PATRON_MONEDA = Pattern.compile("^[A-Za-z]{3}$");    // Moneda tiene que tener exactamente 3 letras (se compila una sola vez)
     private static final String URL_BASE = "https://api.frankfurter.dev/v2";
 
-    private final RestClient restClient;
+    private final RestClient restClient;    // Es la herramienta de Spring para hacer llamadas HTTP a otras APIs
     private final HistorialConversionRepository historialRepository;
+
+
+
 
     public DivisaService(HistorialConversionRepository historialRepository) {
         this.restClient = RestClient.builder()
@@ -32,23 +35,30 @@ public class DivisaService {
         this.historialRepository = historialRepository;
     }
 
+
+
+
     public ConversionDTO convertir(double monto, String origen, String destino) {
 
         validarDatos(monto, origen, destino);
 
-        String origenNormalizado = origen.toUpperCase();
+        String origenNormalizado = origen.toUpperCase();       //Pasa a mayusculas
         String destinoNormalizado = destino.toUpperCase();
 
-        FrankfurterResponseDTO respuestaExterna;
+        FrankfurterResponseDTO respuestaExterna;    // Variable donde se guarda la respuesta de Frankfurter (la declaro afuera del try para usarla después)
 
         try {
             respuestaExterna = restClient.get()
                     .uri("/rate/{origen}/{destino}", origenNormalizado, destinoNormalizado)
-                    .retrieve()
-                    .body(FrankfurterResponseDTO.class);
+                    .retrieve()     // Manda la consulta y trae la respuesta
+                    .body(FrankfurterResponseDTO.class);    // Guarda la respuesta en este objeto
+        
+
         } catch (HttpClientErrorException ex) {
             throw new ServicioExternoException(
                     "La API externa no pudo procesar la conversión: código de moneda inexistente");
+        
+
         } catch (RestClientException ex) {
             throw new ServicioExternoException(
                     "No se pudo obtener la cotización desde el servicio externo: " + ex.getMessage());
@@ -71,6 +81,8 @@ public class DivisaService {
         );
     }
 
+
+
     public ConversionDTO consultarYGuardar(double monto, String origen, String destino) {
 
         ConversionDTO conversion = convertir(monto, origen, destino);
@@ -88,6 +100,8 @@ public class DivisaService {
         return conversion;
     }
 
+
+
     public List<HistorialConversionDTO> obtenerHistorial(String origen, String destino) {
         validarCodigoMoneda(origen, "origen");
         validarCodigoMoneda(destino, "destino");
@@ -100,8 +114,14 @@ public class DivisaService {
 
         return registros.stream()
                 .map(r -> new HistorialConversionDTO(r.getFechaConsulta(), r.getTasa()))
-                .collect(Collectors.toList());
+                .collect(Collectors.toList());      //Junta los resultados en una lista nueva
+
+        // Entidades guardadas                              Lista devuelta (DTOs)
+        // [id=3, USD, ARS, 100, 140000, tasa 1400, 11:30]  ->  [11:30, 1400]
     }
+
+
+
 
     private void validarDatos(double monto, String origen, String destino) {
         if (monto <= 0) {
@@ -110,6 +130,8 @@ public class DivisaService {
         validarCodigoMoneda(origen, "origen");
         validarCodigoMoneda(destino, "destino");
     }
+
+
 
     private void validarCodigoMoneda(String codigo, String nombreCampo) {
         if (codigo == null || !PATRON_MONEDA.matcher(codigo).matches()) {
